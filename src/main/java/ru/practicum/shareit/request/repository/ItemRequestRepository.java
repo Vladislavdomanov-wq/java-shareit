@@ -1,15 +1,15 @@
 package ru.practicum.shareit.request.repository;
 
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import ru.practicum.shareit.request.model.ItemRequest;
 
-import java.util.Collection;
+import java.util.List;
 
-public interface ItemRequestRepository {
-    ItemRequest create(ItemRequest request);
+public interface ItemRequestRepository extends JpaRepository<ItemRequest, Long> {
 
-    Collection<ItemRequest> findByRequestorId(Long requestorId);
+    List<ItemRequest> findAllByRequestorIdOrderByCreatedDesc(Long requestorId);
 
-    Collection<ItemRequest> findAllOrderByCreatedDesc();
-
-    ItemRequest findById(Long id);
+    @Query("SELECT r FROM ItemRequest r WHERE r.requestor.id <> :userId ORDER BY r.created DESC")
+    List<ItemRequest> findAllByRequestorIdNotOrderByCreatedDesc(Long userId);
 }

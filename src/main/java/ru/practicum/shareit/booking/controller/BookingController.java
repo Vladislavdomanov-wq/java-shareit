@@ -14,13 +14,12 @@ import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.service.BookingService;
 import ru.practicum.shareit.config.HeaderConstants;
 
-
 import java.util.Collection;
 
 @RestController
-@RequestMapping("/booking")
+@RequestMapping("/bookings")
 @RequiredArgsConstructor
-public class  BookingController {
+public class BookingController {
     private final BookingService service;
 
     @PostMapping
@@ -37,14 +36,18 @@ public class  BookingController {
     }
 
     @GetMapping("/{bookingId}")
-    public BookingDto findById(@PathVariable Long bookingId) {
-        return service.findById(bookingId);
+    public BookingDto findById(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
+                               @PathVariable Long bookingId) {
+        return service.findById(userId, bookingId);
     }
 
     @GetMapping
     public Collection<BookingDto> findByBooker(
             @RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
             @RequestParam(defaultValue = "ALL") String state) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("Некорректный userId");
+        }
         return service.findByBooker(userId, state);
     }
 
@@ -52,6 +55,9 @@ public class  BookingController {
     public Collection<BookingDto> findByOwner(
             @RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
             @RequestParam(defaultValue = "ALL") String state) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("Некорректный userId");
+        }
         return service.findByOwner(userId, state);
     }
 }

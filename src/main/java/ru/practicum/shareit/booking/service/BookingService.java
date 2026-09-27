@@ -9,9 +9,10 @@ public interface BookingService {
 
     BookingDto approve(Long ownerId, Long bookingId, Boolean approved);
 
-    BookingDto findById(Long bookingId);
+    BookingDto findById(Long userId, Long bookingId);
 
     Collection<BookingDto> findByBooker(Long bookerId, String state);
 
     Collection<BookingDto> findByOwner(Long ownerId, String state);
+
 }
