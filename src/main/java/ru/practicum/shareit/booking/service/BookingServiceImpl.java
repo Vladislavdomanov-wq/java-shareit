@@ -119,26 +119,37 @@ public class BookingServiceImpl implements BookingService {
                 .collect(Collectors.toList());
     }
 
-    private Collection<Booking> filterByState(Collection<Booking> bookings, String state) {
+
+    private List<Booking> filterByState(List<Booking> bookings, String state) {
+        if (state == null || "ALL".equals(state)) {
+            return bookings;
+        }
+
         LocalDateTime now = LocalDateTime.now();
-        return switch (state) {
-            case "CURRENT" -> bookings.stream()
-                    .filter(b -> b.getStart().isBefore(now) && b.getEnd().isAfter(now))
-                    .collect(Collectors.toList());
-            case "PAST" -> bookings.stream()
-                    .filter(b -> b.getEnd().isBefore(now))
-                    .collect(Collectors.toList());
-            case "FUTURE" -> bookings.stream()
-                    .filter(b -> b.getStart().isAfter(now))
-                    .collect(Collectors.toList());
-            case "WAITING" -> bookings.stream()
-                    .filter(b -> b.getStatus() == BookingStatus.WAITING)
-                    .collect(Collectors.toList());
-            case "REJECTED" -> bookings.stream()
-                    .filter(b -> b.getStatus() == BookingStatus.REJECTED)
-                    .collect(Collectors.toList());
-            case "ALL" -> bookings;
-            default -> throw new RuntimeException("Неизвестный статус: " + state);
-        };
+
+        switch (state) {
+            case "CURRENT":
+                return bookings.stream()
+                        .filter(b -> b.getStart().isBefore(now) && b.getEnd().isAfter(now))
+                        .collect(Collectors.toList());
+            case "PAST":
+                return bookings.stream()
+                        .filter(b -> b.getEnd().isBefore(now))
+                        .collect(Collectors.toList());
+            case "FUTURE":
+                return bookings.stream()
+                        .filter(b -> b.getStart().isAfter(now))
+                        .collect(Collectors.toList());
+            case "WAITING":
+                return bookings.stream()
+                        .filter(b -> b.getStatus() == BookingStatus.WAITING)
+                        .collect(Collectors.toList());
+            case "REJECTED":
+                return bookings.stream()
+                        .filter(b -> b.getStatus() == BookingStatus.REJECTED)
+                        .collect(Collectors.toList());
+            default:
+                throw new IllegalArgumentException("Unknown state: " + state);
+        }
     }
 }
