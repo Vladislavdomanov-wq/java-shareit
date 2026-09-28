@@ -1,6 +1,7 @@
 package ru.practicum.shareit.request.service;
 
 import org.springframework.stereotype.Service;
+import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.request.ItemRequestMapper;
 import ru.practicum.shareit.request.dto.ItemRequestDto;
 import ru.practicum.shareit.request.model.ItemRequest;
@@ -25,30 +26,36 @@ public class ItemRequestServiceImpl implements ItemRequestService {
 
     @Override
     public ItemRequestDto create(Long requestorId, ItemRequestDto dto) {
-        User requestor = userRepository.findById(requestorId);
-        if (requestor == null) throw new RuntimeException("Пользователь не найден");
+        User requestor = userRepository.findById(requestorId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+
         ItemRequest r = ItemRequestMapper.toItemRequest(dto);
         r.setRequestor(requestor);
         r.setCreated(LocalDateTime.now());
-        return ItemRequestMapper.toItemRequestDto(requestRepository.create(r));
+
+        ItemRequest saved = requestRepository.save(r);
+        return ItemRequestMapper.toItemRequestDto(saved);
     }
 
     @Override
     public Collection<ItemRequestDto> findByRequestor(Long requestorId) {
-        return requestRepository.findByRequestorId(requestorId).stream()
-                .map(ItemRequestMapper::toItemRequestDto).collect(Collectors.toList());
+
+        return requestRepository.findAllByRequestorIdOrderByCreatedDesc(requestorId).stream()
+                .map(ItemRequestMapper::toItemRequestDto)
+                .collect(Collectors.toList());
     }
 
     @Override
-    public Collection<ItemRequestDto> findAll() {
-        return requestRepository.findAllOrderByCreatedDesc().stream()
-                .map(ItemRequestMapper::toItemRequestDto).collect(Collectors.toList());
+    public Collection<ItemRequestDto> findAll(Long userId) {
+        return requestRepository.findAllByRequestorIdNotOrderByCreatedDesc(userId).stream()
+                .map(ItemRequestMapper::toItemRequestDto)
+                .collect(Collectors.toList());
     }
 
     @Override
     public ItemRequestDto findById(Long id) {
-        ItemRequest r = requestRepository.findById(id);
-        if (r == null) throw new RuntimeException("Запрос не найден");
+        ItemRequest r = requestRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Запрос не найден"));
         return ItemRequestMapper.toItemRequestDto(r);
     }
 }
