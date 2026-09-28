@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.practicum.shareit.booking.dto.BookingDto;
+import ru.practicum.shareit.booking.model.BookingState;
 import ru.practicum.shareit.booking.service.BookingService;
 import ru.practicum.shareit.config.HeaderConstants;
 
@@ -44,7 +45,7 @@ public class BookingController {
     @GetMapping
     public Collection<BookingDto> findByBooker(
             @RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
-            @RequestParam(defaultValue = "ALL") String state) {
+            @RequestParam(defaultValue = "ALL") BookingState state) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("Некорректный userId");
         }
@@ -54,7 +55,7 @@ public class BookingController {
     @GetMapping("/owner")
     public Collection<BookingDto> findByOwner(
             @RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
-            @RequestParam(defaultValue = "ALL") String state) {
+            @RequestParam(defaultValue = "ALL") BookingState state) {
         if (userId == null || userId <= 0) {
             throw new IllegalArgumentException("Некорректный userId");
         }

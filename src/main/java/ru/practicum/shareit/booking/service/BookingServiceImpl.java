@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import ru.practicum.shareit.booking.BookingMapper;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.model.Booking;
+import ru.practicum.shareit.booking.model.BookingState;
 import ru.practicum.shareit.booking.model.BookingStatus;
 import ru.practicum.shareit.booking.repository.BookingRepository;
 import ru.practicum.shareit.exception.ForbiddenException;
@@ -96,7 +97,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    public Collection<BookingDto> findByBooker(Long bookerId, String state) {
+    public Collection<BookingDto> findByBooker(Long bookerId, BookingState state) {
         userRepository.findById(bookerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
@@ -109,7 +110,7 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    public Collection<BookingDto> findByOwner(Long ownerId, String state) {
+    public Collection<BookingDto> findByOwner(Long ownerId, BookingState state) {
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
@@ -120,31 +121,29 @@ public class BookingServiceImpl implements BookingService {
     }
 
 
-    private List<Booking> filterByState(List<Booking> bookings, String state) {
-        if (state == null || "ALL".equals(state)) {
-            return bookings;
-        }
-
+    private List<Booking> filterByState(List<Booking> bookings, BookingState state) {
         LocalDateTime now = LocalDateTime.now();
 
         switch (state) {
-            case "CURRENT":
+            case ALL:
+                return bookings;
+            case CURRENT:
                 return bookings.stream()
                         .filter(b -> b.getStart().isBefore(now) && b.getEnd().isAfter(now))
                         .collect(Collectors.toList());
-            case "PAST":
+            case PAST:
                 return bookings.stream()
                         .filter(b -> b.getEnd().isBefore(now))
                         .collect(Collectors.toList());
-            case "FUTURE":
+            case FUTURE:
                 return bookings.stream()
                         .filter(b -> b.getStart().isAfter(now))
                         .collect(Collectors.toList());
-            case "WAITING":
+            case WAITING:
                 return bookings.stream()
                         .filter(b -> b.getStatus() == BookingStatus.WAITING)
                         .collect(Collectors.toList());
-            case "REJECTED":
+            case REJECTED:
                 return bookings.stream()
                         .filter(b -> b.getStatus() == BookingStatus.REJECTED)
                         .collect(Collectors.toList());
