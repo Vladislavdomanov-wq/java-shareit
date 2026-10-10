@@ -46,9 +46,7 @@ public class BookingController {
     public Collection<BookingDto> findByBooker(
             @RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
             @RequestParam(defaultValue = "ALL") BookingState state) {
-        if (userId == null || userId <= 0) {
-            throw new IllegalArgumentException("Некорректный userId");
-        }
+
         return service.findByBooker(userId, state);
     }
 
@@ -56,9 +54,7 @@ public class BookingController {
     public Collection<BookingDto> findByOwner(
             @RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
             @RequestParam(defaultValue = "ALL") BookingState state) {
-        if (userId == null || userId <= 0) {
-            throw new IllegalArgumentException("Некорректный userId");
-        }
+
         return service.findByOwner(userId, state);
     }
 }

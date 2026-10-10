@@ -7,6 +7,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.shareit.config.HeaderConstants;
+import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 
 @Controller
@@ -48,5 +49,13 @@ public class ItemController {
             @RequestHeader(HeaderConstants.X_SHARER_USER_ID) long userId,
             @RequestParam String text) {
         return client.search(userId, text);
+    }
+
+    @PostMapping("/{itemId}/comment")
+    public ResponseEntity<Object> addComment(
+            @RequestHeader(HeaderConstants.X_SHARER_USER_ID) long userId,
+            @PathVariable Long itemId,
+            @RequestBody CommentDto commentDto) {
+        return client.addComment(userId, itemId, commentDto);
     }
 }

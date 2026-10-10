@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import ru.practicum.shareit.config.HeaderConstants;
 import ru.practicum.shareit.user.dto.UserDto;
 
 @Controller
@@ -35,5 +36,10 @@ public class UserController {
     @GetMapping
     public ResponseEntity<Object> findAll() {
         return client.findAll();
+    }
+
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<Object> delete(@PathVariable Long userId) {
+        return client.delete(userId);
     }
 }

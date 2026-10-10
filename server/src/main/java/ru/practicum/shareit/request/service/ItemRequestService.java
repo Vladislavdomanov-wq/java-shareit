@@ -11,5 +11,5 @@ public interface ItemRequestService {
 
     Collection<ItemRequestDto> findAll(Long userId);
 
-    ItemRequestDto findById(Long id);
+    ItemRequestDto findById(Long userId, Long id);
 }

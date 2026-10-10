@@ -1,6 +1,5 @@
 package ru.practicum.shareit.item.service;
 
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.booking.dto.BookingShortDto;
@@ -16,6 +15,7 @@ import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.CommentRepository;
 import ru.practicum.shareit.item.repository.ItemRepository;
+import ru.practicum.shareit.request.repository.ItemRequestRepository;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.repository.UserRepository;
 
@@ -33,15 +33,18 @@ public class ItemServiceImpl implements ItemService {
     private final UserRepository userRepository;
     private final CommentRepository commentRepository;
     private final BookingRepository bookingRepository;
+    private final ItemRequestRepository requestRepository;
 
     public ItemServiceImpl(ItemRepository itemRepository,
                            UserRepository userRepository,
                            CommentRepository commentRepository,
-                           BookingRepository bookingRepository) {
+                           BookingRepository bookingRepository,
+                           ItemRequestRepository requestRepository) {
         this.itemRepository = itemRepository;
         this.userRepository = userRepository;
         this.commentRepository = commentRepository;
         this.bookingRepository = bookingRepository;
+        this.requestRepository = requestRepository;
     }
 
     @Override
@@ -61,6 +64,11 @@ public class ItemServiceImpl implements ItemService {
 
         Item item = ItemMapper.toItem(dto);
         item.setOwner(owner);
+
+        if (dto.getRequestId() != null) {
+            item.setRequest(requestRepository.findById(dto.getRequestId())
+                    .orElseThrow(() -> new NotFoundException("Запрос не найден")));
+        }
 
         Item saved = itemRepository.save(item);
         return ItemMapper.toItemDto(saved);
@@ -88,44 +96,17 @@ public class ItemServiceImpl implements ItemService {
     public ItemDto findById(Long itemId, Long userId) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена"));
-
-        ItemDto dto = ItemMapper.toItemDto(item);
-
-        List<CommentDto> comments = commentRepository.findByItem_Id(itemId).stream()
-                .map(comment -> {
-                    CommentDto cDto = new CommentDto();
-                    cDto.setId(comment.getId());
-                    cDto.setText(comment.getText());
-                    cDto.setAuthorName(comment.getAuthor().getName());
-                    cDto.setCreated(comment.getCreated());
-                    return cDto;
-                })
-                .sorted(Comparator.comparing(CommentDto::getCreated).reversed())
-                .collect(Collectors.toList());
-        dto.setComments(comments);
-
-        if (item.getOwner().getId().equals(userId)) {
-            LocalDateTime now = LocalDateTime.now();
-            List<Booking> bookings = bookingRepository.findAllByItem_Id(itemId);
-
-            bookings.stream()
-                    .filter(b -> b.getStatus() == BookingStatus.APPROVED && !b.getStart().isAfter(now))
-                    .max(Comparator.comparing(Booking::getStart))
-                    .ifPresent(b -> dto.setLastBooking(new BookingShortDto(b.getId(), b.getBooker().getId())));
-
-            bookings.stream()
-                    .filter(b -> b.getStatus() == BookingStatus.APPROVED && b.getStart().isAfter(now))
-                    .min(Comparator.comparing(Booking::getStart))
-                    .ifPresent(b -> dto.setNextBooking(new BookingShortDto(b.getId(), b.getBooker().getId())));
-        }
-
-        return dto;
+        return toDtoWithDetails(item, userId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Collection<ItemDto> findByOwnerId(Long ownerId) {
+        userRepository.findById(ownerId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
         return itemRepository.findByOwnerId(ownerId).stream()
-                .map(ItemMapper::toItemDto)
+                .map(item -> toDtoWithDetails(item, ownerId))
+                .sorted(Comparator.comparing(ItemDto::getId))
                 .collect(Collectors.toList());
     }
 
@@ -143,51 +124,67 @@ public class ItemServiceImpl implements ItemService {
     @Override
     @Transactional
     public CommentDto addComment(Long userId, Long itemId, CommentDto commentDto) {
-        System.out.println("=== addComment вызван ===");
-        System.out.println("userId: " + userId + ", itemId: " + itemId);
-
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена"));
 
         User author = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
+        LocalDateTime now = LocalDateTime.now();
         List<Booking> bookings = bookingRepository.findAllByItem_Id(item.getId());
-        System.out.println("Найдено бронирований для itemId=" + itemId + ": " + bookings.size());
-        bookings.forEach(b -> {
-            System.out.println("  Booking id=" + b.getId() +
-                    ", status=" + b.getStatus() +
-                    ", end=" + b.getEnd() +
-                    ", end < now: " + b.getEnd().isBefore(LocalDateTime.now()));
-        });
 
-        boolean hasApprovedBooking = bookings.stream()
+        boolean hasFinishedBooking = bookings.stream()
                 .anyMatch(b -> b.getBooker().getId().equals(userId)
                         && b.getStatus() == BookingStatus.APPROVED
-                        && b.getEnd().isBefore(LocalDateTime.now()));
+                        && b.getEnd().isBefore(now));
 
-        System.out.println("hasApprovedBooking: " + hasApprovedBooking);
-
-        if (!hasApprovedBooking) {
-            throw new IllegalArgumentException("Нельзя оставить отзыв: вы не брали эту вещь в аренду или срок аренды не истёк");
+        if (!hasFinishedBooking) {
+            throw new IllegalArgumentException(
+                    "Нельзя оставить отзыв: вы не брали эту вещь в аренду или срок аренды не истёк");
         }
 
         Comment comment = new Comment();
         comment.setText(commentDto.getText());
         comment.setItem(item);
         comment.setAuthor(author);
-        comment.setCreated(LocalDateTime.now());
+        comment.setCreated(now);
 
         Comment saved = commentRepository.save(comment);
-        System.out.println("Комментарий сохранён: id=" + saved.getId());
+        return toCommentDto(saved);
+    }
 
-        CommentDto result = new CommentDto();
-        result.setId(saved.getId());
-        result.setText(saved.getText());
-        result.setAuthorName(saved.getAuthor().getName());
-        result.setCreated(saved.getCreated());
+    private CommentDto toCommentDto(Comment comment) {
+        CommentDto dto = new CommentDto();
+        dto.setId(comment.getId());
+        dto.setText(comment.getText());
+        dto.setAuthorName(comment.getAuthor().getName());
+        dto.setCreated(comment.getCreated().toString());
+        return dto;
+    }
 
-        return result;
+    private ItemDto toDtoWithDetails(Item item, Long userId) {
+        ItemDto dto = ItemMapper.toItemDto(item);
+
+        List<CommentDto> comments = commentRepository.findByItem_Id(item.getId()).stream()
+                .map(this::toCommentDto)
+                .collect(Collectors.toList());
+        dto.setComments(comments);
+
+        if (item.getOwner().getId().equals(userId)) {
+            LocalDateTime now = LocalDateTime.now();
+            List<Booking> bookings = bookingRepository.findAllByItem_Id(item.getId());
+
+            bookings.stream()
+                    .filter(b -> b.getStatus() == BookingStatus.APPROVED && !b.getStart().isAfter(now))
+                    .max(Comparator.comparing(Booking::getStart))
+                    .ifPresent(b -> dto.setLastBooking(new BookingShortDto(b.getId(), b.getBooker().getId())));
+
+            bookings.stream()
+                    .filter(b -> b.getStatus() == BookingStatus.APPROVED && b.getStart().isAfter(now))
+                    .min(Comparator.comparing(Booking::getStart))
+                    .ifPresent(b -> dto.setNextBooking(new BookingShortDto(b.getId(), b.getBooker().getId())));
+        }
+
+        return dto;
     }
 }
-

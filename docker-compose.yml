@@ -9,6 +9,8 @@ services:
       - server
     environment:
       - SHAREIT_SERVER_URL=http://server:9090
+      - TZ=Europe/Amsterdam
+      - JAVA_TOOL_OPTIONS=-Duser.timezone=Europe/Amsterdam
 
   server:
     build: server
@@ -22,6 +24,8 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/shareit
       - SPRING_DATASOURCE_USERNAME=shareit
       - SPRING_DATASOURCE_PASSWORD=shareit
+      - TZ=Europe/Moscow
+      - JAVA_TOOL_OPTIONS=-Duser.timezone=Europe/Moscow
 
   db:
     image: postgres:16.1
@@ -32,6 +36,8 @@ services:
       - POSTGRES_PASSWORD=shareit
       - POSTGRES_USER=shareit
       - POSTGRES_DB=shareit
+      - TZ=Europe/Moscow
+        - JAVA_TOOL_OPTIONS=-Duser.timezone=Europe/Moscow
     healthcheck:
       test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
       timeout: 5s

@@ -27,18 +27,18 @@ public class ItemRequestController {
     }
 
     @GetMapping
-    public Collection<ItemRequestDto> findAll(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
-        return service.findAll(userId);
+    public Collection<ItemRequestDto> findOwn(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
+        return service.findByRequestor(userId);
     }
 
     @GetMapping("/all")
-    public Collection<ItemRequestDto> findByRequestor(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
-        return service.findByRequestor(userId);
+    public Collection<ItemRequestDto> findOthers(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
+        return service.findAll(userId);
     }
 
     @GetMapping("/{requestId}")
     public ItemRequestDto findById(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
                                    @PathVariable Long requestId) {
-        return service.findById(requestId);
+        return service.findById(userId, requestId);
     }
 }
