@@ -35,16 +35,14 @@ public class UserServiceImpl implements UserService {
         }
 
         User user = UserMapper.toUser(dto);
-        User saved = userRepository.create(user);
+        User saved = userRepository.save(user);
         return UserMapper.toUserDto(saved);
     }
 
     @Override
     public UserDto update(Long id, UserDto dto) {
-        User existing = userRepository.findById(id);
-        if (existing == null) {
-            throw new NotFoundException("Пользователь не найден");
-        }
+        User existing = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
         if (dto.getEmail() != null && !dto.getEmail().equals(existing.getEmail())) {
             if (userRepository.existsByEmail(dto.getEmail())) {
@@ -55,15 +53,13 @@ public class UserServiceImpl implements UserService {
         if (dto.getName() != null) existing.setName(dto.getName());
         if (dto.getEmail() != null) existing.setEmail(dto.getEmail());
 
-        return UserMapper.toUserDto(userRepository.update(existing));
+        return UserMapper.toUserDto(userRepository.save(existing));
     }
 
     @Override
     public UserDto findById(Long id) {
-        User user = userRepository.findById(id);
-        if (user == null) {
-            throw new RuntimeException("Пользователь не найден");
-        }
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
         return UserMapper.toUserDto(user);
     }
 
@@ -76,10 +72,8 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void delete(Long id) {
-        User existing = userRepository.findById(id);
-        if (existing == null) {
-            throw new NotFoundException("Пользователь не найден");
-        }
-        userRepository.delete(id);
+        User existing = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+        userRepository.deleteById(id);
     }
 }

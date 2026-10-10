@@ -1,11 +1,15 @@
 package ru.practicum.shareit.booking.service;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.booking.BookingMapper;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.model.Booking;
+import ru.practicum.shareit.booking.model.BookingState;
 import ru.practicum.shareit.booking.model.BookingStatus;
 import ru.practicum.shareit.booking.repository.BookingRepository;
+import ru.practicum.shareit.exception.ForbiddenException;
+import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.item.repository.ItemRepository;
 import ru.practicum.shareit.user.model.User;
@@ -13,7 +17,7 @@ import ru.practicum.shareit.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.Comparator;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,11 +36,12 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     public BookingDto create(Long bookerId, BookingDto dto) {
-        User booker = userRepository.findById(bookerId);
-        if (booker == null) throw new RuntimeException("Пользователь не найден");
+        User booker = userRepository.findById(bookerId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
-        Item item = itemRepository.findById(dto.getItemId());
-        if (item == null) throw new RuntimeException("Вещь не найдена");
+        Item item = itemRepository.findById(dto.getItemId())
+                .orElseThrow(() -> new NotFoundException("Вещь не найдена"));
+
         if (!item.getAvailable()) throw new RuntimeException("Вещь недоступна");
         if (item.getOwner().getId().equals(bookerId))
             throw new RuntimeException("Нельзя бронировать свою вещь");
@@ -48,8 +53,7 @@ public class BookingServiceImpl implements BookingService {
         if (dto.getStart().isBefore(LocalDateTime.now()))
             throw new RuntimeException("Нельзя бронировать в прошлом");
 
-        if (bookingRepository.existsByItemIdAndStartBeforeAndEndAfter(
-                item.getId(), dto.getStart(), dto.getEnd())) {
+        if (bookingRepository.existsByItemIdAndTimeOverlap(item.getId(), dto.getStart(), dto.getEnd())) {
             throw new RuntimeException("Вещь уже забронирована на эти даты");
         }
 
@@ -58,13 +62,13 @@ public class BookingServiceImpl implements BookingService {
         booking.setItem(item);
         booking.setStatus(BookingStatus.WAITING);
 
-        return BookingMapper.toBookingDto(bookingRepository.create(booking));
+        return BookingMapper.toBookingDto(bookingRepository.save(booking));
     }
 
     @Override
     public BookingDto approve(Long ownerId, Long bookingId, Boolean approved) {
-        Booking booking = bookingRepository.findById(bookingId);
-        if (booking == null) throw new RuntimeException("Бронирование не найдено");
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new NotFoundException("Бронирование не найдено"));
 
         if (!booking.getItem().getOwner().getId().equals(ownerId))
             throw new RuntimeException("Только владелец может подтвердить бронирование");
@@ -73,53 +77,78 @@ public class BookingServiceImpl implements BookingService {
             throw new RuntimeException("Можно подтвердить только ожидание");
 
         booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
-        return BookingMapper.toBookingDto(bookingRepository.update(booking));
+        return BookingMapper.toBookingDto(bookingRepository.save(booking));
     }
 
     @Override
-    public BookingDto findById(Long bookingId) {
-        Booking b = bookingRepository.findById(bookingId);
-        if (b == null) throw new RuntimeException("Бронирование не найдено");
-        return BookingMapper.toBookingDto(b);
+    public BookingDto findById(Long userId, Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new NotFoundException("Бронирование не найдено"));
+
+        boolean isBooker = booking.getBooker().getId().equals(userId);
+
+        boolean isOwner = booking.getItem().getOwner().getId().equals(userId);
+
+        if (!isBooker && !isOwner) {
+            throw new ForbiddenException("Нет прав на просмотр этого бронирования");
+        }
+
+        return BookingMapper.toBookingDto(booking);
     }
 
     @Override
-    public Collection<BookingDto> findByBooker(Long bookerId, String state) {
-        return filterByState(bookingRepository.findByBookerId(bookerId), state).stream()
-                .map(BookingMapper::toBookingDto).collect(Collectors.toList());
-    }
+    public Collection<BookingDto> findByBooker(Long bookerId, BookingState state) {
+        userRepository.findById(bookerId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
-    @Override
-    public Collection<BookingDto> findByOwner(Long ownerId, String state) {
-        Collection<Booking> allBookings = itemRepository.findByOwnerId(ownerId).stream()
-                .flatMap(item -> bookingRepository.findByItemId(item.getId()).stream())
-                .distinct()
-                .sorted(Comparator.comparing(Booking::getStart).reversed())
+        return filterByState(
+                bookingRepository.findAllByBookerId(bookerId, Sort.by(Sort.Direction.DESC, "start")),
+                state
+        ).stream()
+                .map(BookingMapper::toBookingDto)
                 .collect(Collectors.toList());
-        return filterByState(allBookings, state).stream()
-                .map(BookingMapper::toBookingDto).collect(Collectors.toList());
     }
 
-    private Collection<Booking> filterByState(Collection<Booking> bookings, String state) {
+    @Override
+    public Collection<BookingDto> findByOwner(Long ownerId, BookingState state) {
+        userRepository.findById(ownerId)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+
+        List<Booking> allBookings = bookingRepository.findAllByItem_OwnerId(ownerId, Sort.by(Sort.Direction.DESC, "start"));
+        return filterByState(allBookings, state).stream()
+                .map(BookingMapper::toBookingDto)
+                .collect(Collectors.toList());
+    }
+
+
+    private List<Booking> filterByState(List<Booking> bookings, BookingState state) {
         LocalDateTime now = LocalDateTime.now();
-        return switch (state) {
-            case "CURRENT" -> bookings.stream()
-                    .filter(b -> b.getStart().isBefore(now) && b.getEnd().isAfter(now))
-                    .collect(Collectors.toList());
-            case "PAST" -> bookings.stream()
-                    .filter(b -> b.getEnd().isBefore(now))
-                    .collect(Collectors.toList());
-            case "FUTURE" -> bookings.stream()
-                    .filter(b -> b.getStart().isAfter(now))
-                    .collect(Collectors.toList());
-            case "WAITING" -> bookings.stream()
-                    .filter(b -> b.getStatus() == BookingStatus.WAITING)
-                    .collect(Collectors.toList());
-            case "REJECTED" -> bookings.stream()
-                    .filter(b -> b.getStatus() == BookingStatus.REJECTED)
-                    .collect(Collectors.toList());
-            case "ALL" -> bookings;
-            default -> throw new RuntimeException("Неизвестный статус: " + state);
-        };
+
+        switch (state) {
+            case ALL:
+                return bookings;
+            case CURRENT:
+                return bookings.stream()
+                        .filter(b -> b.getStart().isBefore(now) && b.getEnd().isAfter(now))
+                        .collect(Collectors.toList());
+            case PAST:
+                return bookings.stream()
+                        .filter(b -> b.getEnd().isBefore(now))
+                        .collect(Collectors.toList());
+            case FUTURE:
+                return bookings.stream()
+                        .filter(b -> b.getStart().isAfter(now))
+                        .collect(Collectors.toList());
+            case WAITING:
+                return bookings.stream()
+                        .filter(b -> b.getStatus() == BookingStatus.WAITING)
+                        .collect(Collectors.toList());
+            case REJECTED:
+                return bookings.stream()
+                        .filter(b -> b.getStatus() == BookingStatus.REJECTED)
+                        .collect(Collectors.toList());
+            default:
+                throw new IllegalArgumentException("Unknown state: " + state);
+        }
     }
 }
