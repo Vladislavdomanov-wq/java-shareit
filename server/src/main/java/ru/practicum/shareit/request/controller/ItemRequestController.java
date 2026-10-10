@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.practicum.shareit.config.HeaderConstants;
-import ru.practicum.shareit.request.dto.ItemRequestDto;
+import ru.practicum.shareit.request.ItemRequestDto;
 import ru.practicum.shareit.request.service.ItemRequestService;
 
 import java.util.Collection;
@@ -27,18 +27,18 @@ public class ItemRequestController {
     }
 
     @GetMapping
-    public Collection<ItemRequestDto> findAll(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
-        return service.findAll(userId);
+    public Collection<ItemRequestDto> findOwn(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
+        return service.findByRequestor(userId);
     }
 
     @GetMapping("/all")
-    public Collection<ItemRequestDto> findByRequestor(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
-        return service.findByRequestor(userId);
+    public Collection<ItemRequestDto> findOthers(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId) {
+        return service.findAll(userId);
     }
 
     @GetMapping("/{requestId}")
     public ItemRequestDto findById(@RequestHeader(HeaderConstants.X_SHARER_USER_ID) Long userId,
                                    @PathVariable Long requestId) {
-        return service.findById(requestId);
+        return service.findById(userId, requestId);
     }
 }

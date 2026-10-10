@@ -18,4 +18,6 @@ public interface ItemService {
     Collection<ItemDto> search(String text);
 
     CommentDto addComment(Long userId, Long itemId, CommentDto commentDto);
+
+
 }

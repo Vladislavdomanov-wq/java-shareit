@@ -42,19 +42,25 @@ public class BookingServiceImpl implements BookingService {
         Item item = itemRepository.findById(dto.getItemId())
                 .orElseThrow(() -> new NotFoundException("Вещь не найдена"));
 
-        if (!item.getAvailable()) throw new RuntimeException("Вещь недоступна");
-        if (item.getOwner().getId().equals(bookerId))
-            throw new RuntimeException("Нельзя бронировать свою вещь");
+        if (!item.getAvailable()) {
+            throw new IllegalArgumentException("Вещь недоступна");
+        }
+        if (item.getOwner().getId().equals(bookerId)) {
+            throw new NotFoundException("Нельзя бронировать свою вещь");
+        }
 
-        if (dto.getStart() == null || dto.getEnd() == null)
-            throw new RuntimeException("Даты должны быть указаны");
-        if (!dto.getStart().isBefore(dto.getEnd()))
-            throw new RuntimeException("Дата начала должна быть раньше даты конца");
-        if (dto.getStart().isBefore(LocalDateTime.now()))
-            throw new RuntimeException("Нельзя бронировать в прошлом");
+        if (dto.getStart() == null || dto.getEnd() == null) {
+            throw new IllegalArgumentException("Даты должны быть указаны");
+        }
+        if (!dto.getStart().isBefore(dto.getEnd())) {
+            throw new IllegalArgumentException("Дата начала должна быть раньше даты конца");
+        }
+        if (dto.getStart().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Нельзя бронировать в прошлом");
+        }
 
         if (bookingRepository.existsByItemIdAndTimeOverlap(item.getId(), dto.getStart(), dto.getEnd())) {
-            throw new RuntimeException("Вещь уже забронирована на эти даты");
+            throw new IllegalArgumentException("Вещь уже забронирована на эти даты");
         }
 
         Booking booking = BookingMapper.toBooking(dto);
@@ -65,19 +71,21 @@ public class BookingServiceImpl implements BookingService {
         return BookingMapper.toBookingDto(bookingRepository.save(booking));
     }
 
-    @Override
-    public BookingDto approve(Long ownerId, Long bookingId, Boolean approved) {
+    public BookingDto approve(Long userId, Long bookingId, Boolean approved) {
         Booking booking = bookingRepository.findById(bookingId)
                 .orElseThrow(() -> new NotFoundException("Бронирование не найдено"));
 
-        if (!booking.getItem().getOwner().getId().equals(ownerId))
-            throw new RuntimeException("Только владелец может подтвердить бронирование");
+        if (!booking.getItem().getOwner().getId().equals(userId)) {
+            throw new ForbiddenException("Только владелец может одобрить бронирование");
+        }
 
-        if (booking.getStatus() != BookingStatus.WAITING)
-            throw new RuntimeException("Можно подтвердить только ожидание");
-
+        if (booking.getStatus() != BookingStatus.WAITING) {
+            throw new IllegalArgumentException("Бронирование уже обработано");
+        }
         booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
-        return BookingMapper.toBookingDto(bookingRepository.save(booking));
+
+        booking = bookingRepository.save(booking);
+        return BookingMapper.toBookingDto(booking);
     }
 
     @Override
