@@ -1,22 +1,30 @@
 package ru.practicum.shareit.booking;
 
-import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.util.DefaultUriBuilderFactory;
-
 import ru.practicum.shareit.booking.dto.BookItemRequestDto;
+import ru.practicum.shareit.booking.dto.BookingResponseDto;
 import ru.practicum.shareit.booking.dto.BookingState;
 import ru.practicum.shareit.client.BaseClient;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class BookingClient extends BaseClient {
     private static final String API_PREFIX = "/bookings";
+    private static final ParameterizedTypeReference<BookingResponseDto> BOOKING =
+            new ParameterizedTypeReference<>() {
+            };
+    private static final ParameterizedTypeReference<List<BookingResponseDto>> BOOKINGS =
+            new ParameterizedTypeReference<>() {
+            };
 
     @Autowired
     public BookingClient(@Value("${shareit-server.url}") String serverUrl, RestTemplateBuilder builder) {
@@ -28,36 +36,36 @@ public class BookingClient extends BaseClient {
         );
     }
 
-    public ResponseEntity<Object> getBookings(long userId, BookingState state, Integer from, Integer size) {
+    public ResponseEntity<List<BookingResponseDto>> getBookings(long userId, BookingState state,
+                                                                Integer from, Integer size) {
         Map<String, Object> parameters = Map.of(
                 "state", state.name(),
                 "from", from,
                 "size", size
         );
-        return get("?state={state}&from={from}&size={size}", userId, parameters);
+        return get("?state={state}&from={from}&size={size}", userId, parameters, BOOKINGS);
     }
 
-
-    public ResponseEntity<Object> bookItem(long userId, BookItemRequestDto requestDto) {
-        return post("", userId, requestDto);
+    public ResponseEntity<BookingResponseDto> bookItem(long userId, BookItemRequestDto requestDto) {
+        return post("", userId, requestDto, BOOKING);
     }
 
-    public ResponseEntity<Object> getBooking(long userId, Long bookingId) {
-        return get("/" + bookingId, userId);
+    public ResponseEntity<BookingResponseDto> getBooking(long userId, Long bookingId) {
+        return get("/" + bookingId, userId, BOOKING);
     }
 
-    public ResponseEntity<Object> approve(long userId, Long bookingId, Boolean approved) {
+    public ResponseEntity<BookingResponseDto> approve(long userId, Long bookingId, Boolean approved) {
         Map<String, Object> parameters = Map.of("approved", approved);
-        return patch("/" + bookingId + "?approved={approved}", userId, parameters, null);
+        return patch("/" + bookingId + "?approved={approved}", userId, parameters, null, BOOKING);
     }
 
-    public ResponseEntity<Object> getBookingsByOwner(long userId, BookingState state, Integer from, Integer size) {
+    public ResponseEntity<List<BookingResponseDto>> getBookingsByOwner(long userId, BookingState state,
+                                                                       Integer from, Integer size) {
         Map<String, Object> parameters = Map.of(
                 "state", state.name(),
                 "from", from,
                 "size", size
         );
-        return get("/owner?state={state}&from={from}&size={size}", userId, parameters);
+        return get("/owner?state={state}&from={from}&size={size}", userId, parameters, BOOKINGS);
     }
-
 }

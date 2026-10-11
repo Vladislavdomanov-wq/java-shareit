@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.dto.UserResponseDto;
+
+import java.util.List;
 
 @Controller
 @RequestMapping("/users")
@@ -22,29 +25,29 @@ public class UserController {
     private final UserClient client;
 
     @PostMapping
-    public ResponseEntity<Object> create(@RequestBody @Valid UserDto dto) {
+    public ResponseEntity<UserResponseDto> create(@RequestBody @Valid UserDto dto) {
         return client.create(dto);
     }
 
     @PatchMapping("/{userId}")
-    public ResponseEntity<Object> update(
+    public ResponseEntity<UserResponseDto> update(
             @PathVariable Long userId,
             @RequestBody UserDto dto) {
         return client.update(userId, dto);
     }
 
     @GetMapping("/{userId}")
-    public ResponseEntity<Object> findById(@PathVariable Long userId) {
+    public ResponseEntity<UserResponseDto> findById(@PathVariable Long userId) {
         return client.findById(userId);
     }
 
     @GetMapping
-    public ResponseEntity<Object> findAll() {
+    public ResponseEntity<List<UserResponseDto>> findAll() {
         return client.findAll();
     }
 
     @DeleteMapping("/{userId}")
-    public ResponseEntity<Object> delete(@PathVariable Long userId) {
+    public ResponseEntity<Void> delete(@PathVariable Long userId) {
         return client.delete(userId);
     }
 }
